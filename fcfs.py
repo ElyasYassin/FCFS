@@ -33,26 +33,6 @@ def get_arrival_time(process):
     return process.arrival_time
 
 
-# Since we also need to calculate the CPU Utilization metric, we decided on utilizing a function for that
-
-def run_cpu_simulation(num_ticks):
-    total_time = num_ticks
-    idle_time = 0
-    active_time = 0
-    
-    for tick in range(num_ticks):
-        is_active = random.choice([True, False])  # Random choice for simplicity
-        
-        if is_active:
-            active_time += 1
-        else:
-            idle_time += 1
-    
-    cpu_utilization = (1 - idle_time / total_time) * 100
-    return cpu_utilization, active_time, idle_time
-
-
-
 # The simulation process was inspired by the paper: https://irepos.unijos.edu.ng/jspui/bitstream/123456789/3136/1/V8I5201935.pdf
 
 #  We generate a n simulations and m processes (between min_p and max_p)
@@ -81,10 +61,6 @@ def run_simulations(num_simulations, min_p, max_p):
         fcfs_avg_waiting = sum(p.waiting_time for p in fcfs_process) / num_processes
         fcfs_avg_turnaround = sum(p.turnaround_time for p in fcfs_process) / num_processes
         fcfs_results.append((fcfs_avg_waiting, fcfs_avg_turnaround))
-        
-        # Running the CPU Utilization simulation
-        cpu_utilization, _, _ = run_cpu_simulation(num_ticks=100)
-        cpu_utilizations.append(cpu_utilization)
 
     return fcfs_results, fcfs_processes, cpu_utilizations
 
