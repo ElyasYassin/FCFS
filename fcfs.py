@@ -2,9 +2,12 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import random
 from tabulate import tabulate
+import time
+
 
 # This class when instantiated will provide attributes for a defined process which include (process id, arrival time, burst time, start time, completion time, waiting time, response time and turnaround time)
 
+# The process
 class Process:
     def __init__(self, pid, arrival_time, burst_time):
         self.pid = pid               
@@ -15,35 +18,75 @@ class Process:
         self.start_time = 0   
         self.response_time = 0
         self.completion_time = 0
-        
+    
+    
 def generate_processes(num_processes):
+    
     processes = []
     for i in range(num_processes):
-        arrival_time = random.randint(0, 10)  # Random arrival time between 0 and 10
-        burst_time = random.randint(1, 10)    # Random burst time between 1 and 10
-        processes.append(Process(i + 1, arrival_time, burst_time))
+        arrival_time = random.randint(0, 10)  # We'll generate an arrival time between 0 and 10
+        burst_time = random.randint(1, 10)    # We'll generate a burst time between 1 and 10
+        processes.append(Process(i + 1, arrival_time, burst_time)) # Instantiate the process and append it to the list with it's arrival time and burst time
     return processes
 
-def run_simulations(num_simulations, min_p, max_p):
-    fcfs_results = []
-    num_processes = random.randint(min_p, max_p)
-    
-    fcfs_processes = []
+def get_arrival_time(process):
+    return process.arrival_time
 
+
+# Since we also need to calculate the CPU Utilization metric, we decided on utilizing a function for that
+
+def run_cpu_simulation(num_ticks):
+    total_time = num_ticks
+    idle_time = 0
+    active_time = 0
     
+    for tick in range(num_ticks):
+        is_active = random.choice([True, False])  # Random choice for simplicity
+        
+        if is_active:
+            active_time += 1
+        else:
+            idle_time += 1
+    
+    cpu_utilization = (1 - idle_time / total_time) * 100
+    return cpu_utilization, active_time, idle_time
+
+
+
+# The simulation process was inspired by the paper: https://irepos.unijos.edu.ng/jspui/bitstream/123456789/3136/1/V8I5201935.pdf
+
+#  We generate a n simulations and m processes (between min_p and max_p)
+
+
+
+def run_simulations(num_simulations, min_p, max_p):
+    fcfs_results = [] 
+    cpu_utilizations = []  
+
+    fcfs_processes = []
+    
+
     for _ in range(num_simulations):
+        num_processes = random.randint(min_p, max_p)  
+    
         processes = generate_processes(num_processes)
         
-        # Deep copy the process list to simulate separately for FCFS and SJF
+        # We'll instantiate the processes with their properties (read above) and store them in fcfs_process
         fcfs_process = [Process(p.pid, p.arrival_time, p.burst_time) for p in processes]
-        
-        # Run FCFS and collect average metrics
+
+        # Perform the first come first serve scheduling
         fcfs_processes.append(calculate_fcfs(fcfs_process))
+        
+        # Calculate average waiting and turnaround times for each simulation
         fcfs_avg_waiting = sum(p.waiting_time for p in fcfs_process) / num_processes
         fcfs_avg_turnaround = sum(p.turnaround_time for p in fcfs_process) / num_processes
         fcfs_results.append((fcfs_avg_waiting, fcfs_avg_turnaround))
-    
-    return fcfs_results, fcfs_processes
+        
+        # Running the CPU Utilization simulation
+        cpu_utilization, _, _ = run_cpu_simulation(num_ticks=100)
+        cpu_utilizations.append(cpu_utilization)
+
+    return fcfs_results, fcfs_processes, cpu_utilizations
 
 """
 Check for these Edge Cases to handle:
@@ -60,10 +103,9 @@ Optimize the efficiency of fcfs code
 def calculate_fcfs(processes):
     n = len(processes)
     
-    # Sort processes based on arrival time
-    processes.sort(key=lambda x: x.arrival_time)
+    # We'll sort the processes based on the arrival times
+    processes.sort(key=get_arrival_time)
     
-    # Initialize the start time for the first process
     current_time = processes[0].arrival_time
     
     # O(n) where n is the number of processes
@@ -71,22 +113,12 @@ def calculate_fcfs(processes):
     for i in range(n):
         process = processes[i]
         
-        # Process start time is the current time if the process has arrived
+        # Here we calculate the necessary metrics intuitively based on our chapter's information
         process.start_time = max(current_time, process.arrival_time)
-        
-        # Response time is the time from arrival to start
-        process.response_time = process.start_time - process.arrival_time
-        
-        # Waiting time is the time from arrival to the time it actually starts
+        process.response_time = process.start_time - process.arrival_time 
         process.waiting_time = process.start_time - process.arrival_time
-        
-        # Completion time is start time + burst time
-        process.completion_time = process.start_time + process.burst_time
-        
-        # Turnaround time is the time from arrival to completion
-        process.turnaround_time = process.completion_time - process.arrival_time
-        
-        # Update current time for the next process
+        process.completion_time = process.start_time + process.burst_time   
+        process.turnaround_time = process.completion_time - process.arrival_time  
         current_time = process.completion_time
 
     return processes
@@ -97,19 +129,17 @@ def print_process_info(processes):
     total_turnaround_time = sum(p.turnaround_time for p in processes)
     n = len(processes)
 
-    # Prepare data for tabulate
+    # We'll create a table of the times associate with each process using the tabulate module for proper visualization
+    
     table_data = [
         [process.pid, process.arrival_time, process.burst_time, process.waiting_time, process.turnaround_time]
         for process in processes
     ]
     
-    # Define column headers
     headers = ["PID", "Arrival Time", "Burst Time", "Waiting Time", "Turnaround Time"]
     
-    # Print the table
-    print(tabulate(table_data, headers=headers, tablefmt="grid"))  # Call tabulate function correctly
+    print(tabulate(table_data, headers=headers, tablefmt="grid")) 
     
-    # Print average metrics
     print("\nAverage Waiting Time:", round(total_waiting_time / n, 2))
     print("Average Turnaround Time:", round(total_turnaround_time / n, 2))
 
@@ -132,18 +162,17 @@ def plot_histograms(processes):
     waiting_times = [process.waiting_time for process in processes]
     turnaround_times = [process.turnaround_time for process in processes]
 
-    # Waiting Time Histogram
-    plt.figure()
-    plt.bar(pids, waiting_times, color='tab:orange')
-    plt.xlabel('Process ID')
-    plt.ylabel('Waiting Time')
-    plt.title('Waiting Time per Process')
-    plt.show()
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6)) 
 
-    # Turnaround Time Histogram
-    plt.figure()
-    plt.bar(pids, turnaround_times, color='tab:green')
-    plt.xlabel('Process ID')
-    plt.ylabel('Turnaround Time')
-    plt.title('Turnaround Time per Process')
+    axes[0].bar(pids, turnaround_times, color='green')
+    axes[0].set_xlabel('Process ID')
+    axes[0].set_ylabel('Turnaround Time')
+    axes[0].set_title('Turnaround Time per Process')
+
+    axes[1].bar(pids, waiting_times, color='orange')
+    axes[1].set_xlabel('Process ID')
+    axes[1].set_ylabel('Waiting Time')
+    axes[1].set_title('Waiting Time per Process')
+
+    plt.tight_layout()
     plt.show()
